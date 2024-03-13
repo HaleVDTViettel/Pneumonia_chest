@@ -1,0 +1,13 @@
+num_epochs: 10
+lr: 0.001
+batch_size: 128 #64 #32 #256
+image_size: 224
+fc1_size: 512
+basic: False
+cropping: False
+augmentations: True
+albumentations: False
+balance: True
+scheduler: ""
+model: "resnet34"
+use_best_checkpoint: False

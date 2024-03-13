@@ -9,9 +9,6 @@ from sklearn.metrics import f1_score
 import timm
 import yaml
 
-with open("modules/h.yaml", "r") as file:
-    h = yaml.safe_load(file)
-
 class PneumoniaModel(pl.LightningModule):
     def __init__(self, h):
         super().__init__()
@@ -64,7 +61,7 @@ class PneumoniaModel(pl.LightningModule):
         self.test_acc = test_acc_mean.cpu().numpy() #Todo - fix it
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.h["lr"])
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.h["lr"])
         scheduler_dic = self._configure_scheduler(optimizer)
 
         if (scheduler_dic["scheduler"]):
@@ -77,6 +74,7 @@ class PneumoniaModel(pl.LightningModule):
 
     def _configure_scheduler(self, optimizer):
         scheduler_name = self.h["scheduler"]
+        h = self.h
         lr = self.h["lr"]
         if (scheduler_name==""):
             return {
@@ -96,37 +94,52 @@ class PneumoniaModel(pl.LightningModule):
                 "monitor": "val_loss",
                 "strict": True
             }
+        if (scheduler_name=="StepLR10"):
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
+            return {
+                "scheduler": scheduler,
+                "interval": "epoch"
+            }
         print ("Error. Unknown scheduler name '{scheduler_name}'")
         return None
 
     def _create_model(self):
         if (self.h["model"]=="efficientnetv2"):
             return timm.create_model("tf_efficientnetv2_b0", pretrained=True, num_classes=2)
-        if (self.h["model"]=="fc"):
+        
+        if (self.h["model"]=="fc"): # which is basic model
             return nn.Sequential(
                 nn.Flatten(),
                 nn.Linear(3 * self.h["image_size"] * self.h["image_size"], self.h["fc1_size"]),
                 nn.ReLU(),
                 nn.Linear(self.h["fc1_size"], 2)
             )
+        
         if (self.h["model"]=="cnn"):
             return nn.Sequential(
-                nn.Conv2d(3, 16, 3, padding=1),
-                nn.ReLU(),
+                nn.Conv2d(3, 64, 3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ReLU(inplace=True),
+                nn.Dropout(p=0.25),
+
+                nn.Conv2d(64, 64, 3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(64, 64, 3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ReLU(inplace=True),
                 nn.MaxPool2d(2, 2),
-                nn.Conv2d(16, 32, 3, padding=1),
-                nn.ReLU(),
-                nn.MaxPool2d(2, 2),
-                nn.Conv2d(32, 64, 3, padding=1),
-                nn.ReLU(),
-                nn.MaxPool2d(2, 2),
+                nn.Dropout(p=0.25),
+
+                nn.AdaptiveAvgPool2d((7, 7)),
                 nn.Flatten(),
-                nn.Dropout(0.25),
-                nn.Linear(64 * (self.h["image_size"] // 8) * (self.h["image_size"] // 8), 512),
-                nn.ReLU(),
-                nn.Dropout(0.25),
+                nn.Linear(64 * 7 * 7, 512),
+                nn.ReLU(inplace=True),
+                nn.Dropout(p=0.5),
                 nn.Linear(512, 2)
+
             )
+            
         if (self.h["model"]=="resnet34"):
             model = resnet34(pretrained=True)
             num_features = model.fc.in_features

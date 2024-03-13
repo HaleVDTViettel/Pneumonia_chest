@@ -1,0 +1,13 @@
+num_epochs: 3
+lr: 0.001
+batch_size: 128 #64 #32 #256
+image_size: 56
+fc1_size: 512
+basic: False
+cropping: False
+augmentations: True
+albumentations: False
+balance: False
+scheduler: ""
+model: "fc"
+use_best_checkpoint: False

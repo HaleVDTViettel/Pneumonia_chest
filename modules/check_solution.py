@@ -1,23 +1,24 @@
 import pytorch_lightning as pl
+import yaml
 
 from .PneumoniaData import PneumoniaDataModule
 from .PneumoniaModel import PneumoniaModel
 from .InfoPrinter import InfoPrinterCallback
 from .PlotTestConfusionMatrix import PlotTestConfusionMatrixCallback
 from .PlotTrainingLogs import PlotTrainingLogsCallback
- 
-def check_solution(h, verbose):
+
+def check_solution(h, verbose=False):
     pneumonia_data = PneumoniaDataModule(h, "Pediatric_Chest_X_ray_Pneumonia/")
     pneumonia_model = PneumoniaModel(h)
 
     # Callbacks
-    info_printer = InfoPrinterCallback()
+    info_printer = InfoPrinterCallback(h)
 
-    early_stopping = pl.callbacks.EarlyStopping(
-        monitor="val_loss",
-        patience=h["early_stopping_patience"],
-        verbose=True,
-    )
+    # early_stopping = pl.callbacks.EarlyStopping(
+    #     monitor="val_loss",
+    #     patience=h["early_stopping_patience"],
+    #     verbose=True,
+    # )
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         dirpath="model_checkpoints",
@@ -27,10 +28,13 @@ def check_solution(h, verbose):
 
     callbacks = [info_printer, 
                 #  early_stopping, 
-                 checkpoint_callback]
-    if (verbose):
-        callbacks.append(PlotTestConfusionMatrixCallback())
-        callbacks.append(PlotTrainingLogsCallback())
+                 checkpoint_callback,
+                 PlotTestConfusionMatrixCallback(),
+                 PlotTrainingLogsCallback()
+                 ]
+    # if (verbose):
+    #     callbacks.append(PlotTestConfusionMatrixCallback())
+    #     callbacks.append(PlotTrainingLogsCallback())
 
     trainer = pl.Trainer(
         max_epochs=h["num_epochs"],
